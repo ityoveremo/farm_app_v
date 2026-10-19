@@ -1,6 +1,8 @@
 use axum::{routing::get, Router};
 use std::net::SocketAddr;
 
+mod repositories;
+
 async fn health_check() -> &'static str {
     "ok"
 }
