@@ -9,7 +9,7 @@ async fn health_check() -> &'static str {
 async fn main() {
     let app = Router::new().route("/health", get(health_check));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     println!("Listening on {}", addr);
 
