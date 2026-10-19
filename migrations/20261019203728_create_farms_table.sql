@@ -1,1 +1,9 @@
--- Add migration script here
+CREATE EXTENSION IF NOT EXISTS postgis;
+
+CREATE TABLE farms (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(150),
+    town VARCHAR(100) NOT NULL,
+    location GEOMETRY(Point, 4326) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
