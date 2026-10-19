@@ -1,4 +1,4 @@
-use axum::{extract::State, routing::get, Router};
+use axum::{extract::State, routing::{get, post}, Router};
 use sqlx::postgres::PgPool;
 use std::env;
 use std::net::SocketAddr;
@@ -22,6 +22,7 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/farms", get(routes::farms::get_farms))
+        .route("/farms", post(routes::farms::create_farm))
         .with_state(pool);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
