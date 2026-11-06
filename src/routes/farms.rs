@@ -21,9 +21,9 @@ pub struct NewFarmRequest {
     pub lat: f64,
 }
 
-pub async fn get_farms(State(pool): State<PgPool>) -> Json<Vec<FarmOut>> {
+pub async fn get_farms(State(pool): State<PgPool>) -> Result<Json<Vec<FarmOut>>, AppError> {
     let repo = FarmRepository::new(&pool);
-    let farms = repo.find_all().await.unwrap();
+    let farms = repo.find_all().await?;
     
     let farm_outs: Vec<FarmOut> = farms
         .into_iter()
@@ -34,7 +34,7 @@ pub async fn get_farms(State(pool): State<PgPool>) -> Json<Vec<FarmOut>> {
         })
         .collect();
     
-    Json(farm_outs)
+    Ok(Json(farm_outs))
 }
 
 pub async fn create_farm(
