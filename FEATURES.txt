@@ -1,0 +1,88 @@
+PHASE 1 - SKELETON AND FIRST TABLE
+  Packages: axum, tokio, serde, sqlx (runtime-tokio, postgres, uuid, chrono),
+            sqlx-cli (global tool)
+  1.  chore: init cargo project, add axum/tokio/serde
+  2.  chore: add docker-compose with postgis, add .env.example
+  3.  feat: add /health endpoint
+  4.  chore: install sqlx-cli, add sqlx migrate tooling
+  5.  feat: migration - create farms table (point geometry only)
+  6.  feat: add FarmRepository with insert() and find_all()
+
+PHASE 2 - FARMS OVER HTTP, NO AUTH
+  Packages: none new
+  7.  feat: add FarmService wrapping FarmRepository with basic coordinate validation
+  8.  feat: add GET /farms handler
+  9.  feat: add POST /farms handler
+  10. feat: add shared AppError type + map to HTTP status codes
+
+PHASE 3 - FRONTEND
+  Packages: tower-http (fs). Leaflet is loaded from a CDN.
+  11. feat: serve static files via tower-http
+  12. feat: add Leaflet map page rendering pins from GET /farms
+  13. feat: click-to-place pin, POST new farm from map
+
+PHASE 4 - AUTH AND ROLES
+  Packages: argon2
+  14. feat: migration - create users table
+  15. feat: add password hashing (argon2) + user registration
+  16. feat: add login endpoint issuing session/JWT
+  17. feat: add CurrentUser extractor/middleware
+  18. feat: enforce admin/field_agent role on POST /farms
+
+PHASE 5 - OWNERS AND CROPS
+  Packages: none new
+  19. feat: migration - create owners table, add owner_id to farms
+  20. feat: extend FarmRepository/Service to require owner_id on create
+  21. feat: migration - create crops table
+  22. feat: migration - create farm_crops join table
+  23. feat: add crop assignment to farm creation + detail response
+  24. feat: add GET /crops endpoint
+
+PHASE 6 - POLYGONS, PHOTOS, APPROVAL
+  Packages: kamadak-exif (or similar). Multipart uses Axum's built-in extractor.
+  25. feat: migration - add boundary polygon + area_hectares to farms
+  26. feat: compute area_hectares from submitted polygon
+  27. feat: migration - create farm_photos table
+  28. feat: add POST /farms/:id/photos (multipart upload)
+  29. feat: strip EXIF geolocation from uploaded photos
+  30. feat: migration - add status enum to farms, default pending
+  31. feat: add GET /farms/pending (admin queue)
+  32. feat: add PATCH /farms/:id/status (approve/reject)
+
+PHASE 7 - DISEASE REPORTS
+  Packages: none new
+  33. feat: migration - create disease_reports table
+  34. feat: add POST /farms/:id/disease-reports
+  35. feat: add GET /disease-reports (filterable by farm/crop)
+  36. feat: add disease report toggle layer to map frontend
+
+PHASE 8 - SEARCH, FILTERING, ADMIN TOOLING
+  Packages: csv
+  37. feat: add query params to GET /farms for town/owner/crop filter
+  38. feat: add admin dashboard table view
+  39. feat: add CSV export of farms
+  40. feat: add CSV import for bulk farm creation
+
+PHASE 9 - AUDIT LOG
+  Packages: serde_json (add explicitly if not already transitive)
+  41. feat: migration - create audit_log table
+  42. refactor: wrap farm create/update in DB transaction
+  43. feat: write audit_log row on farm create/update/delete
+  44. feat: extend audit logging to crops, photos, disease reports
+
+PHASE 10 - INTEGRITY AND SECURITY HARDENING
+  Packages: tower_governor (or similar rate limiter)
+  45. feat: validate polygon geometry (ST_IsValid) before insert
+  46. feat: add overlapping-farm detection/warning
+  47. feat: add optimistic locking via updated_at check on PATCH
+  48. feat: add rate limiting middleware on GET /farms
+  49. feat: restrict owner name/phone visibility by role
+
+PHASE 11 - OPERATIONS AND POLISH
+  Packages: tracing, tracing-subscriber, utoipa, utoipa-swagger-ui (optional)
+  50. test: add integration tests for farm handlers
+  51. test: add unit tests for FarmService validation logic
+  52. feat: add structured logging (tracing crate)
+  53. docs: add OpenAPI spec
+  54. chore: add CI workflow (cargo test, cargo clippy)
+  55. docs: add backup/restore procedure
