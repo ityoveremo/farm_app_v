@@ -4,7 +4,9 @@ use std::env;
 use std::net::SocketAddr;
 use tower_http::services::ServeDir;
 
+mod auth;
 mod error;
+mod models;
 mod repositories;
 mod routes;
 mod services;
@@ -22,6 +24,7 @@ async fn main() {
     
     let app = Router::new()
         .route("/health", get(health_check))
+        .route("/register", post(routes::auth::register))
         .route("/farms", get(routes::farms::get_farms))
         .route("/farms", post(routes::farms::create_farm))
         .with_state(pool)

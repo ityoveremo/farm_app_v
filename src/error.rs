@@ -9,12 +9,24 @@ pub enum AppError {
     Unauthorized,
     Forbidden,
     NotFound,
-    Internal(SqlxError),
+    Internal(String),
 }
 
 impl From<SqlxError> for AppError {
     fn from(err: SqlxError) -> Self {
-        AppError::Internal(err)
+        AppError::Internal(err.to_string())
+    }
+}
+
+impl From<argon2::Error> for AppError {
+    fn from(err: argon2::Error) -> Self {
+        AppError::Internal(err.to_string())
+    }
+}
+
+impl From<argon2::password_hash::Error> for AppError {
+    fn from(err: argon2::password_hash::Error) -> Self {
+        AppError::Internal(err.to_string())
     }
 }
 
