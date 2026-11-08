@@ -28,6 +28,7 @@ async fn main() {
         .route("/login", post(routes::auth::login))
         .route("/farms", get(routes::farms::get_farms))
         .route("/farms", post(routes::farms::create_farm).layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
+        .route("/farms/pending", get(routes::farms::get_pending_farms).layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
         .route("/crops", get(routes::crops::get_crops))
         .route("/farms/:id/photos", post(routes::photos::upload_photo).layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
         .with_state(pool)

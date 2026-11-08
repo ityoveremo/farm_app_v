@@ -1,5 +1,8 @@
+use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
 use sqlx::Error;
+
+use crate::models::farm::FarmStatus;
 
 pub struct Farm {
     pub id: i64,
@@ -10,6 +13,9 @@ pub struct Farm {
     pub owner_id: Option<i64>,
     pub boundary: Option<String>,
     pub area_hectares: Option<f64>,
+    pub status: FarmStatus,
+    pub approved_by: Option<i64>,
+    pub approved_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 pub struct FarmRepository<'a> {
@@ -66,7 +72,8 @@ impl<'a> FarmRepository<'a> {
         let rows = sqlx::query!(
             r#"
             SELECT id, name, town, ST_X(location) as lon, ST_Y(location) as lat, owner_id, 
-                   ST_AsText(boundary) as boundary, area_hectares FROM farms
+                   ST_AsText(boundary) as boundary, area_hectares, status as "status: FarmStatus", 
+                   approved_by, approved_at FROM farms
             "#
         )
         .fetch_all(self.pool)
@@ -81,6 +88,39 @@ impl<'a> FarmRepository<'a> {
             owner_id: row.owner_id,
             boundary: row.boundary,
             area_hectares: row.area_hectares,
+            status: row.status,
+            approved_by: row.approved_by,
+            approved_at: row.approved_at.map(|dt| DateTime::<Utc>::from(dt)),
+        }).collect();
+
+        Ok(farms)
+    }
+
+    pub async fn find_pending(&self) -> Result<Vec<Farm>, Error> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, name, town, ST_X(location) as lon, ST_Y(location) as lat, owner_id, 
+                   ST_AsText(boundary) as boundary, area_hectares, status as "status: FarmStatus", 
+                   approved_by, approved_at FROM farms
+            WHERE status = 'pending'
+            ORDER BY created_at ASC
+            "#
+        )
+        .fetch_all(self.pool)
+        .await?;
+
+        let farms = rows.into_iter().map(|row| Farm {
+            id: row.id,
+            name: row.name,
+            town: row.town,
+            lon: row.lon,
+            lat: row.lat,
+            owner_id: row.owner_id,
+            boundary: row.boundary,
+            area_hectares: row.area_hectares,
+            status: row.status,
+            approved_by: row.approved_by,
+            approved_at: row.approved_at.map(|dt| DateTime::<Utc>::from(dt)),
         }).collect();
 
         Ok(farms)

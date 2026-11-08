@@ -1,9 +1,11 @@
 use axum::{extract::State, Json};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgPool;
 
 use crate::auth::CurrentUser;
 use crate::error::AppError;
+use crate::models::farm::FarmStatus;
 use crate::models::user::UserRole;
 use crate::repositories::farm_repository::FarmRepository;
 use crate::services::farm_service::FarmService;
@@ -19,6 +21,9 @@ pub struct FarmOut {
     pub crop_ids: Vec<i64>,
     pub boundary: Option<String>,
     pub area_hectares: Option<f64>,
+    pub status: FarmStatus,
+    pub approved_by: Option<i64>,
+    pub approved_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Deserialize)]
@@ -49,6 +54,9 @@ pub async fn get_farms(State(pool): State<PgPool>) -> Result<Json<Vec<FarmOut>>,
             crop_ids,
             boundary: farm.boundary,
             area_hectares: farm.area_hectares,
+            status: farm.status,
+            approved_by: farm.approved_by,
+            approved_at: farm.approved_at,
         });
     }
     
@@ -69,4 +77,38 @@ pub async fn create_farm(
     let service = FarmService::new(repo);
     let id = service.create_farm(body.name.as_deref(), &body.town, body.lon, body.lat, body.owner_id, body.crop_ids, body.boundary).await?;
     Ok(Json(id))
+}
+
+pub async fn get_pending_farms(
+    current_user: CurrentUser,
+    State(pool): State<PgPool>,
+) -> Result<Json<Vec<FarmOut>>, AppError> {
+    match current_user.role() {
+        UserRole::Admin => {},
+        _ => return Err(AppError::Forbidden),
+    }
+
+    let repo = FarmRepository::new(&pool);
+    let farms = repo.find_pending().await?;
+    
+    let mut farm_outs = Vec::new();
+    for farm in farms {
+        let crop_ids = repo.find_crops_by_farm(farm.id).await?;
+        farm_outs.push(FarmOut {
+            id: farm.id,
+            name: farm.name,
+            town: farm.town,
+            lon: farm.lon,
+            lat: farm.lat,
+            owner_id: farm.owner_id,
+            crop_ids,
+            boundary: farm.boundary,
+            area_hectares: farm.area_hectares,
+            status: farm.status,
+            approved_by: farm.approved_by,
+            approved_at: farm.approved_at,
+        });
+    }
+    
+    Ok(Json(farm_outs))
 }
