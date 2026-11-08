@@ -7,6 +7,7 @@ pub struct Farm {
     pub town: String,
     pub lon: Option<f64>,
     pub lat: Option<f64>,
+    pub owner_id: Option<i64>,
 }
 
 pub struct FarmRepository<'a> {
@@ -18,17 +19,18 @@ impl<'a> FarmRepository<'a> {
         Self { pool }
     }
 
-    pub async fn insert(&self, name: &str, town: &str, lon: f64, lat: f64) -> Result<i64, Error> {
+    pub async fn insert(&self, name: &str, town: &str, lon: f64, lat: f64, owner_id: i64) -> Result<i64, Error> {
         let row = sqlx::query_scalar!(
             r#"
-            INSERT INTO farms (name, town, location)
-            VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326))
+            INSERT INTO farms (name, town, location, owner_id)
+            VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5)
             RETURNING id
             "#,
             name,
             town,
             lon,
-            lat
+            lat,
+            owner_id
         )
         .fetch_one(self.pool)
         .await?;
@@ -40,7 +42,7 @@ impl<'a> FarmRepository<'a> {
         let farms = sqlx::query_as!(
             Farm,
             r#"
-            SELECT id, name, town, ST_X(location) as lon, ST_Y(location) as lat FROM farms
+            SELECT id, name, town, ST_X(location) as lon, ST_Y(location) as lat, owner_id FROM farms
             "#
         )
         .fetch_all(self.pool)

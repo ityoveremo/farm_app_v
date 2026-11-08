@@ -16,6 +16,7 @@ impl<'a> FarmService<'a> {
         town: &str,
         lon: f64,
         lat: f64,
+        owner_id: i64,
     ) -> Result<i64, AppError> {
         if lon < -180.0 || lon > 180.0 || lat < -90.0 || lat > 90.0 {
             return Err(AppError::BadRequest(
@@ -24,7 +25,7 @@ impl<'a> FarmService<'a> {
         }
 
         let name_str = name.unwrap_or("");
-        let id = self.repo.insert(name_str, town, lon, lat).await?;
+        let id = self.repo.insert(name_str, town, lon, lat, owner_id).await?;
         Ok(id)
     }
 }
