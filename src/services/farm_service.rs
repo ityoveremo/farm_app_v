@@ -17,6 +17,7 @@ impl<'a> FarmService<'a> {
         lon: f64,
         lat: f64,
         owner_id: i64,
+        crop_ids: Vec<i64>,
     ) -> Result<i64, AppError> {
         if lon < -180.0 || lon > 180.0 || lat < -90.0 || lat > 90.0 {
             return Err(AppError::BadRequest(
@@ -25,7 +26,10 @@ impl<'a> FarmService<'a> {
         }
 
         let name_str = name.unwrap_or("");
-        let id = self.repo.insert(name_str, town, lon, lat, owner_id).await?;
-        Ok(id)
+        let farm_id = self.repo.insert(name_str, town, lon, lat, owner_id).await?;
+        
+        self.repo.insert_crop_assignments(farm_id, &crop_ids).await?;
+        
+        Ok(farm_id)
     }
 }

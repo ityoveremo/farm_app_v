@@ -50,4 +50,35 @@ impl<'a> FarmRepository<'a> {
 
         Ok(farms)
     }
+
+    pub async fn insert_crop_assignments(&self, farm_id: i64, crop_ids: &[i64]) -> Result<(), Error> {
+        if crop_ids.is_empty() {
+            return Ok(());
+        }
+        
+        let query = format!(
+            "INSERT INTO farm_crops (farm_id, crop_id) SELECT $1, unnest($2::BIGINT[])"
+        );
+        
+        sqlx::query(&query)
+            .bind(farm_id)
+            .bind(crop_ids)
+            .execute(self.pool)
+            .await?;
+        
+        Ok(())
+    }
+
+    pub async fn find_crops_by_farm(&self, farm_id: i64) -> Result<Vec<i64>, Error> {
+        let crop_ids = sqlx::query_scalar!(
+            r#"
+            SELECT crop_id FROM farm_crops WHERE farm_id = $1
+            "#,
+            farm_id
+        )
+        .fetch_all(self.pool)
+        .await?;
+        
+        Ok(crop_ids)
+    }
 }

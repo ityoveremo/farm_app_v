@@ -5,7 +5,7 @@ use sqlx::postgres::PgPool;
 use crate::auth::CurrentUser;
 use crate::error::AppError;
 use crate::models::user::UserRole;
-use crate::repositories::farm_repository::FarmRepository;
+use crate::repositories::farm_repository::{FarmRepository, Farm};
 use crate::services::farm_service::FarmService;
 
 #[derive(Serialize)]
@@ -16,6 +16,7 @@ pub struct FarmOut {
     pub lon: Option<f64>,
     pub lat: Option<f64>,
     pub owner_id: Option<i64>,
+    pub crop_ids: Vec<i64>,
 }
 
 #[derive(Deserialize)]
@@ -25,23 +26,26 @@ pub struct NewFarmRequest {
     pub lon: f64,
     pub lat: f64,
     pub owner_id: i64,
+    pub crop_ids: Vec<i64>,
 }
 
 pub async fn get_farms(State(pool): State<PgPool>) -> Result<Json<Vec<FarmOut>>, AppError> {
     let repo = FarmRepository::new(&pool);
     let farms = repo.find_all().await?;
     
-    let farm_outs: Vec<FarmOut> = farms
-        .into_iter()
-        .map(|farm| FarmOut {
+    let mut farm_outs = Vec::new();
+    for farm in farms {
+        let crop_ids = repo.find_crops_by_farm(farm.id).await?;
+        farm_outs.push(FarmOut {
             id: farm.id,
             name: farm.name,
             town: farm.town,
             lon: farm.lon,
             lat: farm.lat,
             owner_id: farm.owner_id,
-        })
-        .collect();
+            crop_ids,
+        });
+    }
     
     Ok(Json(farm_outs))
 }
@@ -58,6 +62,6 @@ pub async fn create_farm(
     
     let repo = FarmRepository::new(&pool);
     let service = FarmService::new(repo);
-    let id = service.create_farm(body.name.as_deref(), &body.town, body.lon, body.lat, body.owner_id).await?;
+    let id = service.create_farm(body.name.as_deref(), &body.town, body.lon, body.lat, body.owner_id, body.crop_ids).await?;
     Ok(Json(id))
 }
