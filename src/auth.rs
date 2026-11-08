@@ -2,11 +2,18 @@ use argon2::{
     password_hash::{PasswordHash, PasswordVerifier, SaltString},
     Argon2, PasswordHasher,
 };
-use jsonwebtoken::{encode, Header, EncodingKey};
+use axum::{
+    async_trait,
+    extract::FromRequestParts,
+    http::request::Parts,
+};
+use jsonwebtoken::{decode, encode, Header, DecodingKey, EncodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
+use sqlx::postgres::PgPool;
+use std::env;
 
 use crate::error::AppError;
-use crate::models::user::{LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, UserRole};
+use crate::models::user::{User, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse, UserRole};
 use crate::repositories::user_repository::UserRepository;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -15,6 +22,69 @@ pub struct Claims {
     pub username: String,
     pub role: String,
     pub exp: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct CurrentUser {
+    pub user: User,
+}
+
+impl CurrentUser {
+    pub fn user_id(&self) -> i64 {
+        self.user.id
+    }
+    
+    pub fn username(&self) -> &str {
+        &self.user.username
+    }
+    
+    pub fn role(&self) -> &UserRole {
+        &self.user.role
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for CurrentUser
+where
+    S: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "default_secret".to_string());
+        
+        let headers = parts.headers.clone();
+        let auth_header = headers.get("Authorization")
+            .ok_or(AppError::Unauthorized)?;
+        
+        let auth_str = auth_header.to_str()
+            .map_err(|_| AppError::Unauthorized)?;
+        
+        if !auth_str.starts_with("Bearer ") {
+            return Err(AppError::Unauthorized);
+        }
+        
+        let token = &auth_str[7..];
+        
+        let decoded = decode::<Claims>(
+            token,
+            &DecodingKey::from_secret(jwt_secret.as_ref()),
+            &Validation::new(Algorithm::HS256),
+        )
+        .map_err(|_| AppError::Unauthorized)?;
+        
+        let pool: PgPool = parts.extensions.get::<PgPool>()
+            .ok_or(AppError::Internal("Database pool not available".to_string()))?
+            .clone();
+        
+        let user_repo = UserRepository::new(&pool);
+        let user = user_repo.find_by_id(decoded.claims.sub)
+            .await
+            .map_err(AppError::from)?
+            .ok_or(AppError::Unauthorized)?;
+        
+        Ok(CurrentUser { user })
+    }
 }
 
 pub fn hash_password(password: &str) -> Result<String, AppError> {
@@ -110,3 +180,5 @@ impl<'a> AuthService<'a> {
         })
     }
 }
+
+
