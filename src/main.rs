@@ -2,6 +2,7 @@ use axum::{extract::State, routing::{get, post}, Router};
 use sqlx::postgres::PgPool;
 use std::env;
 use std::net::SocketAddr;
+use tower_http::services::ServeDir;
 
 mod error;
 mod repositories;
@@ -23,7 +24,8 @@ async fn main() {
         .route("/health", get(health_check))
         .route("/farms", get(routes::farms::get_farms))
         .route("/farms", post(routes::farms::create_farm))
-        .with_state(pool);
+        .with_state(pool)
+        .fallback_service(ServeDir::new("static"));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3001));
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
