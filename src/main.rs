@@ -25,6 +25,7 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/register", post(routes::auth::register))
+        .route("/login", post(routes::auth::login))
         .route("/farms", get(routes::farms::get_farms))
         .route("/farms", post(routes::farms::create_farm))
         .with_state(pool)

@@ -10,7 +10,7 @@ pub struct User {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "user_role", rename_all = "lowercase")]
 pub enum UserRole {
     Admin,
@@ -27,6 +27,20 @@ pub struct RegisterRequest {
 #[derive(Debug, Serialize)]
 pub struct RegisterResponse {
     pub id: i64,
+    pub username: String,
+    pub role: UserRole,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct LoginResponse {
+    pub token: String,
+    pub user_id: i64,
     pub username: String,
     pub role: UserRole,
 }
