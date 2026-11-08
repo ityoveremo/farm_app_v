@@ -17,6 +17,8 @@ pub struct FarmOut {
     pub lat: Option<f64>,
     pub owner_id: Option<i64>,
     pub crop_ids: Vec<i64>,
+    pub boundary: Option<String>,
+    pub area_hectares: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -27,6 +29,7 @@ pub struct NewFarmRequest {
     pub lat: f64,
     pub owner_id: i64,
     pub crop_ids: Vec<i64>,
+    pub boundary: Option<String>,
 }
 
 pub async fn get_farms(State(pool): State<PgPool>) -> Result<Json<Vec<FarmOut>>, AppError> {
@@ -44,6 +47,8 @@ pub async fn get_farms(State(pool): State<PgPool>) -> Result<Json<Vec<FarmOut>>,
             lat: farm.lat,
             owner_id: farm.owner_id,
             crop_ids,
+            boundary: farm.boundary,
+            area_hectares: farm.area_hectares,
         });
     }
     
@@ -62,6 +67,6 @@ pub async fn create_farm(
     
     let repo = FarmRepository::new(&pool);
     let service = FarmService::new(repo);
-    let id = service.create_farm(body.name.as_deref(), &body.town, body.lon, body.lat, body.owner_id, body.crop_ids).await?;
+    let id = service.create_farm(body.name.as_deref(), &body.town, body.lon, body.lat, body.owner_id, body.crop_ids, body.boundary).await?;
     Ok(Json(id))
 }
