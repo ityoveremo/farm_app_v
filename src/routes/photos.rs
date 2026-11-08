@@ -1,6 +1,10 @@
 use axum::{extract::{Multipart, Path, State}, Json};
+use image::DynamicImage;
+use image::ImageReader;
+use image::ImageFormat;
 use serde::Serialize;
 use sqlx::postgres::PgPool;
+use std::io::Cursor;
 
 use crate::auth::CurrentUser;
 use crate::error::AppError;
@@ -46,11 +50,13 @@ pub async fn upload_photo(
             AppError::BadRequest(format!("Failed to read file bytes: {}", e))
         })?;
         
-        let size_bytes = bytes.len() as i64;
+        let stripped_bytes = strip_exif(&bytes).await?;
+        
+        let size_bytes = stripped_bytes.len() as i64;
         
         let filepath = format!("static/uploads/{}", filename);
         
-        tokio::fs::write(&filepath, &bytes).await.map_err(|e| {
+        tokio::fs::write(&filepath, &stripped_bytes).await.map_err(|e| {
             AppError::Internal(format!("Failed to save file: {}", e))
         })?;
         
@@ -77,4 +83,22 @@ pub async fn upload_photo(
     }
     
     Err(AppError::BadRequest("No file uploaded".to_string()))
+}
+
+async fn strip_exif(bytes: &[u8]) -> Result<Vec<u8>, AppError> {
+    let reader = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|e| AppError::BadRequest(format!("Failed to read image: {}", e)))?;
+    
+    match reader.decode() {
+        Ok(img) => {
+            let mut stripped_bytes = Vec::new();
+            let mut cursor = Cursor::new(&mut stripped_bytes);
+            match img.write_to(&mut cursor, ImageFormat::Jpeg) {
+                Ok(_) => Ok(stripped_bytes),
+                Err(_) => Ok(bytes.to_vec()),
+            }
+        }
+        Err(_) => Ok(bytes.to_vec()),
+    }
 }
