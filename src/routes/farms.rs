@@ -11,6 +11,8 @@ pub struct FarmOut {
     pub id: i64,
     pub name: Option<String>,
     pub town: String,
+    pub lon: Option<f64>,
+    pub lat: Option<f64>,
 }
 
 #[derive(Deserialize)]
@@ -31,6 +33,8 @@ pub async fn get_farms(State(pool): State<PgPool>) -> Result<Json<Vec<FarmOut>>,
             id: farm.id,
             name: farm.name,
             town: farm.town,
+            lon: farm.lon,
+            lat: farm.lat,
         })
         .collect();
     

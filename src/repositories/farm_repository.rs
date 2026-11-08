@@ -5,6 +5,8 @@ pub struct Farm {
     pub id: i64,
     pub name: Option<String>,
     pub town: String,
+    pub lon: Option<f64>,
+    pub lat: Option<f64>,
 }
 
 pub struct FarmRepository<'a> {
@@ -38,7 +40,7 @@ impl<'a> FarmRepository<'a> {
         let farms = sqlx::query_as!(
             Farm,
             r#"
-            SELECT id, name, town FROM farms
+            SELECT id, name, town, ST_X(location) as lon, ST_Y(location) as lat FROM farms
             "#
         )
         .fetch_all(self.pool)
