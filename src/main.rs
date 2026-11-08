@@ -28,6 +28,7 @@ async fn main() {
         .route("/login", post(routes::auth::login))
         .route("/farms", get(routes::farms::get_farms))
         .route("/farms", post(routes::farms::create_farm).layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
+        .route("/crops", get(routes::crops::get_crops))
         .with_state(pool)
         .fallback_service(ServeDir::new("static"));
 
