@@ -8,10 +8,37 @@
     <style>
         body { margin: 0; padding: 0; }
         #map { height: 100vh; width: 100%; }
+        #farm-form {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+        }
+        #farm-form input, #farm-form button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 8px;
+        }
+        #farm-form button {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
     <div id="map"></div>
+    <div id="farm-form">
+        <h3>Add New Farm</h3>
+        <input type="text" id="farm-name" placeholder="Farm name (optional)">
+        <input type="text" id="farm-town" placeholder="Town" required>
+        <button onclick="submitFarm()">Save</button>
+        <button onclick="cancelFarm()">Cancel</button>
+    </div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const map = L.map('map').setView([0, 0], 2);
@@ -19,14 +46,78 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        fetch('/farms')
+        let selectedLat = null;
+        let selectedLon = null;
+        let newMarker = null;
+
+        function showForm(lat, lon) {
+            selectedLat = lat;
+            selectedLon = lon;
+            document.getElementById('farm-form').style.display = 'block';
+            if (newMarker) map.removeLayer(newMarker);
+            newMarker = L.marker([lat, lon]).addTo(map);
+        }
+
+        function cancelFarm() {
+            document.getElementById('farm-form').style.display = 'none';
+            if (newMarker) map.removeLayer(newMarker);
+            newMarker = null;
+        }
+
+        function submitFarm() {
+            const name = document.getElementById('farm-name').value || null;
+            const town = document.getElementById('farm-town').value;
+            
+            if (!town) {
+                alert('Town is required');
+                return;
+            }
+
+            fetch('/farms', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name,
+                    town: town,
+                    lon: selectedLon,
+                    lat: selectedLat
+                })
+            })
             .then(response => response.json())
-            .then(farms => {
-                farms.forEach(farm => {
-                    L.marker([farm.lat, farm.lon]).addTo(map)
-                        .bindPopup(`<b>${farm.name || 'Unnamed'}</b><br>Town: ${farm.town}`);
-                });
+            .then(() => {
+                cancelFarm();
+                document.getElementById('farm-name').value = '';
+                document.getElementById('farm-town').value = '';
+                refreshFarms();
+            })
+            .catch(err => {
+                console.error('Error:', err);
+                alert('Error creating farm');
             });
+        }
+
+        function refreshFarms() {
+            fetch('/farms')
+                .then(response => response.json())
+                .then(farms => {
+                    // Clear existing markers
+                    map.eachLayer(layer => {
+                        if (layer instanceof L.Marker && layer !== newMarker) {
+                            map.removeLayer(layer);
+                        }
+                    });
+                    farms.forEach(farm => {
+                        L.marker([farm.lat, farm.lon]).addTo(map)
+                            .bindPopup(`<b>${farm.name || 'Unnamed'}</b><br>Town: ${farm.town}`);
+                    });
+                });
+        }
+
+        map.on('click', function(e) {
+            showForm(e.latlng.lat, e.latlng.lng);
+        });
+
+        refreshFarms();
     </script>
 </body>
 </html>
