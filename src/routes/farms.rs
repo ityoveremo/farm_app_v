@@ -5,7 +5,7 @@ use sqlx::postgres::PgPool;
 use crate::auth::CurrentUser;
 use crate::error::AppError;
 use crate::models::user::UserRole;
-use crate::repositories::farm_repository::{FarmRepository, Farm};
+use crate::repositories::farm_repository::FarmRepository;
 use crate::services::farm_service::FarmService;
 
 #[derive(Serialize)]
