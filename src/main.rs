@@ -1,4 +1,4 @@
-use axum::{extract::State, routing::{get, post}, Router};
+use axum::{middleware, routing::{get, post}, Router};
 use sqlx::postgres::PgPool;
 use std::env;
 use std::net::SocketAddr;
@@ -27,7 +27,7 @@ async fn main() {
         .route("/register", post(routes::auth::register))
         .route("/login", post(routes::auth::login))
         .route("/farms", get(routes::farms::get_farms))
-        .route("/farms", post(routes::farms::create_farm))
+        .route("/farms", post(routes::farms::create_farm).layer(middleware::from_fn_with_state(pool.clone(), auth::auth_middleware)))
         .with_state(pool)
         .fallback_service(ServeDir::new("static"));
 

@@ -4,8 +4,12 @@ use argon2::{
 };
 use axum::{
     async_trait,
-    extract::FromRequestParts,
+    body::Body,
+    extract::{FromRequestParts, State},
+    http::Request,
     http::request::Parts,
+    middleware::Next,
+    response::Response,
 };
 use jsonwebtoken::{decode, encode, Header, DecodingKey, EncodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
@@ -43,6 +47,49 @@ impl CurrentUser {
     }
 }
 
+pub async fn auth_middleware(
+    State(pool): State<PgPool>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, AppError> {
+    let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "default_secret".to_string());
+    
+    let (mut parts, body) = request.into_parts();
+    
+    let headers = parts.headers.clone();
+    let auth_header = headers.get("Authorization")
+        .ok_or(AppError::Unauthorized)?;
+    
+    let auth_str = auth_header.to_str()
+        .map_err(|_| AppError::Unauthorized)?;
+    
+    if !auth_str.starts_with("Bearer ") {
+        return Err(AppError::Unauthorized);
+    }
+    
+    let token = &auth_str[7..];
+    
+    let decoded = decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(jwt_secret.as_ref()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map_err(|_| AppError::Unauthorized)?;
+    
+    let user_repo = UserRepository::new(&pool);
+    let user = user_repo.find_by_id(decoded.claims.sub)
+        .await
+        .map_err(AppError::from)?
+        .ok_or(AppError::Unauthorized)?;
+    
+    let current_user = CurrentUser { user };
+    
+    parts.extensions.insert(current_user);
+    
+    let request = Request::from_parts(parts, body);
+    Ok(next.run(request).await)
+}
+
 #[async_trait]
 impl<S> FromRequestParts<S> for CurrentUser
 where
@@ -51,39 +98,9 @@ where
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        let jwt_secret = env::var("JWT_SECRET").unwrap_or_else(|_| "default_secret".to_string());
-        
-        let headers = parts.headers.clone();
-        let auth_header = headers.get("Authorization")
-            .ok_or(AppError::Unauthorized)?;
-        
-        let auth_str = auth_header.to_str()
-            .map_err(|_| AppError::Unauthorized)?;
-        
-        if !auth_str.starts_with("Bearer ") {
-            return Err(AppError::Unauthorized);
-        }
-        
-        let token = &auth_str[7..];
-        
-        let decoded = decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(jwt_secret.as_ref()),
-            &Validation::new(Algorithm::HS256),
-        )
-        .map_err(|_| AppError::Unauthorized)?;
-        
-        let pool: PgPool = parts.extensions.get::<PgPool>()
-            .ok_or(AppError::Internal("Database pool not available".to_string()))?
-            .clone();
-        
-        let user_repo = UserRepository::new(&pool);
-        let user = user_repo.find_by_id(decoded.claims.sub)
-            .await
-            .map_err(AppError::from)?
-            .ok_or(AppError::Unauthorized)?;
-        
-        Ok(CurrentUser { user })
+        parts.extensions.get::<CurrentUser>()
+            .cloned()
+            .ok_or(AppError::Unauthorized)
     }
 }
 
@@ -180,5 +197,3 @@ impl<'a> AuthService<'a> {
         })
     }
 }
-
-
